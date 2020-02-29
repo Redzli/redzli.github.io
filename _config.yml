@@ -1,7 +1,21 @@
+paginate: 10 # pagination based on number of posts
+paginate_path: "page:num"
+exclude: ["README.md"] # files to exclude
+highlighter: pygments
+markdown: kramdown
+excerpt_separator: ""   # Workaround for http://blog.slaks.net/2013-08-09/jekyll-tag-was-never-closed
+
+defaults:
+  -
+    scope:
+      path: "" # empty string for all files
+    values:
+      title: abstract class {...}
+
 # Site settings
 title:       Pixyll
 email:       your_email@example.com
-author:      John Otander
+author:      Red Li 
 description: "A simple, beautiful theme for Jekyll that emphasizes content rather than aesthetic fluff."
 baseurl:     ""
 url:         "http://pixyll.com"
