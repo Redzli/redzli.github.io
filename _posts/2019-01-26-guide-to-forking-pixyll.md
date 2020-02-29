@@ -1,66 +1,227 @@
 ---
 layout: post
-title: Guide to Forking Pixyll
-date: 2019-01-26 19:22
-summary: Red is available to you under the MIT license.
-categories: jekyll pixyll
+title: Create a Message Distribution System using NATS
+date: 2019-02-26 19:22
+summary: A performant, lightweight and reliable micro service for message distribution.
+categories: micro service
 ---
+# NATS Messaging System
+I have written a thorough walk-through on how I  built a containerised `NATS` message distribution system. It is now published as a course on `IBM Skills Network`. I will share part of the content in this blog. 
 
-The following is an overview to copying and sharing Pixyll.[^1]
+## Five modules for creating a containerised
+- Overview of NATS messaging System
+- Create NATS Producer to send messages 
+- Customise NATS Consumers to process messages
+- Expose local host to a public host
+- Deploy NATS application using Docker, Kubernetes and Helm 
 
-Most people have an understanding of what the copyright and licensing obligations are for source code, but not everyone has practical experience.  There is a lot of information about how to use free and open source source code generally, but not necessarily how it works specifically.
 
-## Basics
+# Module 1:
+## NATS Overview
 
-Pixyll is free and open source software under the MIT license, a _permissive license_.  You can use Pixyll without charge and it is provided to you, "as is", without warranty of any kind.
+## Why NATS?
+A modern messaging system needs to support multiple communication patterns, be secure by default, support multiple qualities of service, and provide multitenancy for a shared infrastructure. Here are the advantages of NATS: 
 
-These are some of the rights for Pixyll since it is under the MIT license:[^2]
+* Easy to use for developers and operators
+* Performant 
+* Always on and available
+* Extremely lightweight 
 
-1. You can **copy** Pixyll by forking it on GitHub or by any other means of copying.
-2. You can **use** Pixyll to publish your site without restriction or limitation.
-3. You can **change** Pixyll as you wish, and you can publish your site with a modified version of Pixyll.
-4. You can also **distribute** copies of Pixyll to other people.
-5. You can also **distribute modified** copies of Pixyll.
+## What does NATS look like?
+The workflow of NATS can be simplified as:
 
-Other rights you have of Pixyll under the MIT license:
 
-- You can **sell** copies of Pixyll, including copies you have modified.
-- You can **combine** Pixyll with other works that are under the MIT license, or other permissive licenses, a copyleft license or a proprietary license.  Pixyll already does this itself by using Jekyll, Ruby and other dependencies.
-- You can distribute copies of Pixyll to others under either the MIT license or you can **relicense** Pixyll under another license.  This includes a different permissive license, a copyleft license or a proprietary license.
+## Use Cases of NATS
+In short, NATS can be anywhere. Below are a few examples:
+* Cloud Messaging
+  * Services (microservices, service mesh)
+  *  Event/Data Streaming 
+* Command and Control
+  * IoT and Edge
+  * Telemetry / Sensor Data / Command and Control
+* Augmenting or Replacing Legacy Messaging Systems
 
-Your only responsibility is to preserve both the copyright notices of Pixyll and the MIT license in your copy or modified work.
+# Module 2 Create a NATS Producer
+## Our Project
+We want to provide a simple service: **sending, receiving and processing messages using NATS**
 
-## How to
+The message can be sent to NATS in many ways, in our project we assume we are sending a JSON-formatted message using HTTP POST request. A sample message can look like this:
 
-If you've modified Pixyll significantly and want to share your version, especially public copies of the code, then there are a few items you should do.
+``
+{
+	"subject": "someSubject",
+	"message": {
+		"text" : "Hello World"
+	}
+}
+``
 
-1. You should probably **rename** your fork of Pixyll with a different name.
-2. A new name isn't required by the MIT license, but it is good etiquette.[^3]
-3. You should add your name to the **copyright** of your version, and you should preserve the existing copyrights of Pixyll.
-4. Maintaining the copyright notices isn't required of the MIT license, but it is suggested by the license and is a good practice for documenting the copyrights of your derived work.
+We are going to build a messaging system using NATS. The system has three components:
+- Producer
+  - Takes an HTTP request and generate the message.
+- NATS
+  - Stores messages generated from the Producer.
+- Consumer
+  - Get messages from NATS and process them.
 
-The items above do not apply when you just copied and modified Pixyll in small ways to just publish your site and you have no plans to fork Pixyll under a different name.
+Let's break down each component and see how they are created:
+## Producer
+### Why We need a Producer
+One nature of NATS is that it does not deal with HTTP requests. We as developers, therefore cannot directly make an HTTP request to NATS. This is one of the reasons why NATS is light-weight and performant.
 
-If you want to publish a fork of Pixyll under a different name but keeping it under the MIT license, then you should add your name to the copyright notices:
+So how do we talk to NATS? We do so by creating a special "message Producer" that sends messages to NATS.
 
-    Copyright (c) 2019 Your Name
-    Copyright (c) 2014-2019 John Otander for Pixyll
+### How to create a Producer
 
-However, if you want to publish a fork of Pixyll under a different name *and* a different license, then you should should still add your name to the copyright notices but have a section titled "Pixyll" at the bottom of your LICENSE file that preserves the copyright and license notices for Pixyll:
+There are a few steps we need to implement on creating a producer:
+### Specify a NATS client
+  Using the NATS `url`, `username` and `password` provided by the [official doc](https://docs.nats.io/developing-with-nats/connecting/default_server). 
+  
+  We can specify the NATS client we want to talk to. Since every time we want to talk to NATS we will forward a message, we are in fact "enquing" a message to NATS. Therefore, we can wrap the NATS client in an `enqueue` method:
+  ```javascript
+  async enqueue(subject: string, message: any) {
+    try {
+      let nc; // Define a NATS client
+      if (NATS_USERNAME == undefined || NATS_PASSWORD == undefined) {
+        nc = await connect(
+          {
+            url: NATS_URL,
+            payload: Payload.JSON,
+            tls: NATS_TLS
+          }
+        );
+      } else {
+        nc = await connect(
+          {
+            url: NATS_URL,
+            payload: Payload.JSON,
+            tls: NATS_TLS,
+            user: NATS_USERNAME,
+            pass: NATS_PASSWORD
+          }
+        );
+      }
+  ``` 
 
-    Pixyll
+Let's quickly walk through some parameters in the above code:
+* `url`: Default NATS host name to be accessed
+* `username`: Username to access the url
+* `password`: Password to access the url
+* `payload`: Messages in NATS need payload 
+* `tls`: A security protocol designed to facilitate privacy and data security for communications over the Internet 
+
+Now we have connected to a NATS client, how do we receive and send messages to NATS?
+
+Let's take a look at how NATS talk with Producer and Consumer  
+
+We use two methods `subscribe` and `publish`
+
+- Subscribers listen on a subject, and receive messages on that subject
+- `subscribe` method takes two argument: `subject`, and `message`.
+- Once the `subject` of the message matches the `subject` defined in `config`, the `message` will be received
+- Once the `message` is received, we `publish` the message to NATS    
+
+```javascript
+// nc is the NATS client we defined in the code above
+nc.subscribe(subject, (err, msg) => {
+          if(err) {
+              throw new err;
+          } else {
+            nc.close();
+            console.log(' message received: ', msg);
+          }
+      }, {max: 1});
+
+      nc.publish(subject, message);
+    } 
+```
+Let's wrap them together:
+```javascript
+async enqueue(subject: string, message: any) {
+  try {
+    let nc;
+    nc = await connect(
+      { // specify NATS credentials
+        url: NATS_URL,
+        payload: Payload.JSON,
+        tls: NATS_TLS,
+        user: NATS_USERNAME,
+        pass: NATS_PASSWORD
+      }
+    )
     
-    Copyright (c) 2014-2019 John Otander
+    // make sure NATS can be accessed through subscribe method
+    await nc.subscribe(subject, (err, msg) => {
+      if(err) {
+          throw new err;
+      } else {
+        nc.close();
+        console.log('Closed connection, message received: ', msg);
+      }
+    }, {max: 1});
     
-    MIT License
-    
-    Permission is hereby granted, [...]
+    // make sure the message is sent to NATS
+      nc.publish(subject, message);
+    } catch(err) {
+      console.error(`Failed to publish to ${subject}`);
+      console.error(err);
+      throw new err;
+    }
 
-If you are just modifying Pixyll in small ways to customize your site, you are not obligated to maintain the copyright notices of Pixyll on your site.  However, if you want to credit the Pixyll theme that would be appreciated, see section on "Pixyll Plug" in the README file that came with Pixyll.
+    return true;
+  }
+```
 
-Thanks for using Pixyll, and happy hacking!
+# Module 3 Customise a Nats Consumer
+Developers have 100% freedom to customise their own NATS consumers.
 
----
-[^1]: **Disclaimer**: This material is for informational purposes only, and should not be construed as legal advice or opinion.  For actual legal advice, you should consult with professional legal services.
-[^2]: This list of privileges are derived from the four freedoms of "The Free Software Definition" published by the GNU project <https://www.gnu.org/philosophy/free-sw.en.html>.
-[^3]: Using a different name from "Pixyll" for your derivate work helps avoid misdirected questions from people who are using your version.  It's similar to using version numbers to discrimate the revisions of software when troubleshooting issues.
+In this course, we want to create a consumer that can post the message received on NATS to a slack channel.
+
+### Step 1: Create a NATS Consumer
+Very similar to `Producer`, a NATS consumer specifies the NATS client and then subscribes to it.
+We use `subscribe` method to achieve it.
+```javascript
+const nc = await connect(
+  {
+    url: NATS_URL,
+    payload: Payload.JSON,
+    tls: NATS_TLS,
+    user: NATS_USERNAME,
+    pass: NATS_PASSWORD
+  }
+);
+
+nc.subscribe(NATS_SUBJECT, async (err, msg) => {
+  if(err) {
+    console.log(err);
+  } else {
+    console.log('Message received: ', msg.subject, ":", '\n', msg.data);
+    await axios.post(
+      process.env.SLACK_WEBHOOK,
+      msg.data,
+    ).then(() => {
+      console.log("RESPONSE RECEIVED ON SLACK.");
+    }).catch((err) => {
+      console.log("AXIOS ERROR! ", err)
+    })
+    }
+  });
+```
+We use `axios` module to make an HTTP `POST` request to post the message to a slack channel. 
+
+
+# Module 4 Expose Local Host to Public Host
+We use `route 53` from AWS to achieve it.
+Once we deploy our application to `IBM cloud` registry. We will get a public host name for our application. In my case, the host name is `https://hooks.slack.com/services/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`. However, since `IBM cloud` does not provide customisation for host name, we can use `aws` to customise our host name for better readability.
+
+The step is:
+* Sign up for an `aws` account
+* Buy a host name
+* Search service `route 53`
+* Register a domain name  
+
+# Module 5 Dockerise the Application
+## Docker
+I use `docker` to containerise the whole application. I then push the image to `IBM Cloud Container Registry` to make it accessible for anyone not using my computer. As you may have guessed, `IBM Cloud Container Registry` is not for free. But I am working at IBM so I have full access. 
+## Kubernetes and Helm
+On top of `docker` I use `Kubernetes`(`k8s`) and `Helm` to monitor and control my application. I am not digging into too much detail in this post because I have shared other articles on that topic.
