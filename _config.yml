@@ -10,7 +10,7 @@ defaults:
     scope:
       path: "" # empty string for all files
     values:
-      title: abstract class {...}
+      title: 
 
 # Site settings
 title:       Red's Personal Blog
@@ -113,8 +113,8 @@ text:
   index:
     coming_soon: 'Coming soon...'
   contact:
-    email:    'Email Address'
-    content:  'What would you like to say?'
+    email:    'Please leave your email address'
+    content:  'Leave me with a message and I will be in touch shortly.'
     subject:  'New submission!'
     submit:   'Say Hello'
     ajax:
@@ -126,6 +126,7 @@ text:
 
 # Build settings
 markdown:     kramdown
+theme: minima
 redcarpet:
   extensions: ['smart', 'tables', 'with_toc_data']
 permalink:    pretty
