@@ -10,7 +10,7 @@ defaults:
     scope:
       path: "" # empty string for all files
     values:
-      title: abstract class {...}
+      title:
 
 # Site settings
 title:       Red's Personal Blog
